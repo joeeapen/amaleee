@@ -1,0 +1,119 @@
+
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <sys/select.h>
+
+int main() {
+    int s, c, clients[20] = {0};
+    char msg[1024];
+    struct sockaddr_in server;
+    fd_set fds;
+
+    s = socket(AF_INET, SOCK_STREAM, 0);
+
+    server.sin_family = AF_INET;
+    server.sin_port = htons(8080);
+    server.sin_addr.s_addr = INADDR_ANY;
+
+    bind(s, (struct sockaddr *)&server, sizeof(server));
+    listen(s, 5);
+
+    printf("Chat server started...\n");
+
+    while (1) {
+        FD_ZERO(&fds);
+        FD_SET(s, &fds);
+        int maxfd = s;
+
+        for (int i = 0; i < 20; i++) {
+            if (clients[i] > 0) {
+                FD_SET(clients[i], &fds);
+                if (clients[i] > maxfd)
+                    maxfd = clients[i];
+            }
+        }
+
+        select(maxfd + 1, &fds, NULL, NULL, NULL);
+
+        if (FD_ISSET(s, &fds)) {
+            c = accept(s, NULL, NULL);
+
+            for (int i = 0; i < 20; i++) {
+                if (clients[i] == 0) {
+                    clients[i] = c;
+                    break;
+                }
+            }
+
+            printf("Client connected\n");
+        }
+
+        for (int i = 0; i < 20; i++) {
+            if (clients[i] > 0 && FD_ISSET(clients[i], &fds)) {
+                int n = recv(clients[i], msg, sizeof(msg), 0);
+
+                if (n <= 0) {
+                    close(clients[i]);
+                    clients[i] = 0;
+                    printf("Client disconnected\n");
+                } else {
+                    for (int j = 0; j < 20; j++) {
+                        if (clients[j] > 0 && j != i)
+                            send(clients[j], msg, n, 0);
+                    }
+                }
+            }
+        }
+    }
+
+    close(s);
+    return 0;
+}
+
+
+
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <signal.h>
+
+int main() {
+    int s;
+    char msg[1024];
+    struct sockaddr_in server;
+
+    s = socket(AF_INET, SOCK_STREAM, 0);
+
+    server.sin_family = AF_INET;
+    server.sin_port = htons(8080);
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    connect(s, (struct sockaddr *)&server, sizeof(server));
+
+    if (fork() == 0) {
+        while (fgets(msg, sizeof(msg), stdin) != NULL)
+            send(s, msg, strlen(msg), 0);
+
+        close(s);
+        _exit(0);
+    }
+
+    while (1) {
+        int n = recv(s, msg, sizeof(msg) - 1, 0);
+
+        if (n <= 0)
+            break;
+
+        msg[n] = '\0';
+        printf("%s", msg);
+        fflush(stdout);
+    }
+
+    close(s);
+    return 0;
+}
