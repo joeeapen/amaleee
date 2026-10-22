@@ -1,0 +1,47 @@
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+
+int main() {
+    int s;
+    char buffer[65536];
+    struct sockaddr_in source, dest;
+    struct iphdr *ip;
+
+    s = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+
+    if (s < 0) {
+        printf("Socket creation failed. Run using sudo.\n");
+        return 1;
+    }
+
+    printf("Capturing TCP packets...\n");
+
+    while (1) {
+        int n = recvfrom(s, buffer, sizeof(buffer), 0, NULL, NULL);
+
+        if (n < 0)
+            continue;
+
+        ip = (struct iphdr *)buffer;
+
+        source.sin_addr.s_addr = ip->saddr;
+        dest.sin_addr.s_addr = ip->daddr;
+
+        printf("\nPacket captured\n");
+        printf("Source IP      : %s\n",
+               inet_ntoa(source.sin_addr));
+        printf("Destination IP : %s\n",
+               inet_ntoa(dest.sin_addr));
+        printf("Protocol       : %d\n", ip->protocol);
+        printf("Packet size    : %d bytes\n", n);
+    }
+
+    close(s);
+    return 0;
+}
