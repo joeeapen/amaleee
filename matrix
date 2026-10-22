@@ -1,0 +1,116 @@
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+int main() {
+    int s, c, n, a[20][20];
+    struct sockaddr_in server;
+
+    s = socket(AF_INET, SOCK_STREAM, 0);
+
+    server.sin_family = AF_INET;
+    server.sin_port = htons(8080);
+    server.sin_addr.s_addr = INADDR_ANY;
+
+    bind(s, (struct sockaddr *)&server, sizeof(server));
+    listen(s, 1);
+
+    printf("Waiting for client...\n");
+    c = accept(s, NULL, NULL);
+
+    recv(c, &n, sizeof(n), 0);
+    recv(c, a, n * n * sizeof(int), 0);
+
+    int upper = 1, lower = 1, diagonal = 1;
+
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            if (i > j && a[i][j] != 0)
+                upper = 0;
+
+            if (i < j && a[i][j] != 0)
+                lower = 0;
+
+            if (i != j && a[i][j] != 0)
+                diagonal = 0;
+        }
+    }
+
+    char *type;
+
+    if (diagonal)
+        type = "Diagonal";
+    else if (upper)
+        type = "Upper Triangular";
+    else if (lower)
+        type = "Lower Triangular";
+    else
+        type = "Neither";
+
+    send(c, type, 30, 0);
+
+    printf("Matrix type: %s\n", type);
+
+    close(c);
+    close(s);
+
+    return 0;
+}
+
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <time.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
+int main() {
+    int s, n, a[20][20];
+    struct sockaddr_in server;
+    char result[30] = {0};
+
+    s = socket(AF_INET, SOCK_STREAM, 0);
+
+    server.sin_family = AF_INET;
+    server.sin_port = htons(8080);
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    connect(s, (struct sockaddr *)&server, sizeof(server));
+
+    printf("Enter N: ");
+    scanf("%d", &n);
+
+    if (n < 1 || n > 20) {
+        printf("Invalid N\n");
+        close(s);
+        return 0;
+    }
+
+    srand(time(NULL));
+
+    printf("Matrix:\n");
+
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            a[i][j] = rand() % 50 + 1;
+            printf("%d ", a[i][j]);
+        }
+        printf("\n");
+    }
+
+    send(s, &n, sizeof(n), 0);
+    send(s, a, n * n * sizeof(int), 0);
+
+    recv(s, result, sizeof(result) - 1, 0);
+
+    printf("Matrix type: %s\n", result);
+
+    close(s);
+
+    return 0;
+}
