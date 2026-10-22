@@ -1,0 +1,102 @@
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <sys/wait.h>
+#include <signal.h>
+
+int main() {
+    int s, c;
+    char filename[100], buffer[1024];
+    struct sockaddr_in server;
+
+    signal(SIGCHLD, SIG_IGN);
+
+    s = socket(AF_INET, SOCK_STREAM, 0);
+
+    server.sin_family = AF_INET;
+    server.sin_port = htons(8080);
+    server.sin_addr.s_addr = INADDR_ANY;
+
+    bind(s, (struct sockaddr *)&server, sizeof(server));
+    listen(s, 5);
+
+    printf("File server running...\n");
+
+    while (1) {
+        c = accept(s, NULL, NULL);
+
+        if (fork() == 0) {
+            FILE *fp;
+            int n;
+
+            close(s);
+
+            recv(c, filename, sizeof(filename) - 1, 0);
+            filename[sizeof(filename) - 1] = '\0';
+
+            char header[100];
+            snprintf(header, sizeof(header), "Server PID: %d\n",
+                     getpid());
+            send(c, header, strlen(header), 0);
+
+            fp = fopen(filename, "r");
+
+            if (fp == NULL) {
+                send(c, "File not found\n", 15, 0);
+            } else {
+                while ((n = fread(buffer, 1, sizeof(buffer), fp)) > 0)
+                    send(c, buffer, n, 0);
+
+                fclose(fp);
+            }
+
+            close(c);
+            exit(0);
+        }
+
+        close(c);
+    }
+
+    close(s);
+    return 0;
+}
+
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
+int main() {
+    int s, n;
+    char filename[100], buffer[1024];
+    struct sockaddr_in server;
+
+    s = socket(AF_INET, SOCK_STREAM, 0);
+
+    server.sin_family = AF_INET;
+    server.sin_port = htons(8080);
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    connect(s, (struct sockaddr *)&server, sizeof(server));
+
+    printf("Enter filename: ");
+    scanf("%99s", filename);
+
+    send(s, filename, strlen(filename) + 1, 0);
+
+    while ((n = recv(s, buffer, sizeof(buffer) - 1, 0)) > 0) {
+        buffer[n] = '\0';
+        printf("%s", buffer);
+    }
+
+    close(s);
+    return 0;
+}
+
+
