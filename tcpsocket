@@ -1,0 +1,65 @@
+server.c
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+int main() {
+    int s, c;
+    struct sockaddr_in server;
+    char buffer[1024] = {0};
+
+    s = socket(AF_INET, SOCK_STREAM, 0);
+
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_port = htons(12345);
+
+    bind(s, (struct sockaddr *)&server, sizeof(server));
+    listen(s, 3);
+
+    printf("Server waiting...\n");
+
+    c = accept(s, NULL, NULL);
+
+    read(c, buffer, sizeof(buffer));
+    printf("Client: %s\n", buffer);
+
+    send(c, "Hello from server", 17, 0);
+
+    close(c);
+    close(s);
+
+    return 0;
+}
+
+client.c
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+int main() {
+    int s;
+    struct sockaddr_in server;
+    char buffer[1024] = {0};
+
+    s = socket(AF_INET, SOCK_STREAM, 0);
+
+    server.sin_family = AF_INET;
+    server.sin_port = htons(12345);
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    connect(s, (struct sockaddr *)&server, sizeof(server));
+
+    send(s, "Hello from client", 17, 0);
+    read(s, buffer, sizeof(buffer));
+
+    printf("Server: %s\n", buffer);
+
+    close(s);
+
+    return 0;
+}
