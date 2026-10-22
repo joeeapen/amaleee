@@ -1,32 +1,31 @@
-server.c
-
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 int main() {
     int s, c;
+    char msg[100];
     struct sockaddr_in server;
-    char buffer[1024] = {0};
 
     s = socket(AF_INET, SOCK_STREAM, 0);
 
     server.sin_family = AF_INET;
+    server.sin_port = htons(8080);
     server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(12345);
 
     bind(s, (struct sockaddr *)&server, sizeof(server));
-    listen(s, 3);
+    listen(s, 1);
 
-    printf("Server waiting...\n");
-
+    printf("Waiting for client...\n");
     c = accept(s, NULL, NULL);
 
-    read(c, buffer, sizeof(buffer));
-    printf("Client: %s\n", buffer);
+    recv(c, msg, sizeof(msg), 0);
+    printf("Client: %s\n", msg);
 
-    send(c, "Hello from server", 17, 0);
+    strcpy(msg, "Hello from server!");
+    send(c, msg, strlen(msg) + 1, 0);
 
     close(c);
     close(s);
@@ -34,30 +33,33 @@ int main() {
     return 0;
 }
 
-client.c
 
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/socket.h>
 #include <arpa/inet.h>
 
 int main() {
     int s;
+    char msg[100];
     struct sockaddr_in server;
-    char buffer[1024] = {0};
 
     s = socket(AF_INET, SOCK_STREAM, 0);
 
     server.sin_family = AF_INET;
-    server.sin_port = htons(12345);
+    server.sin_port = htons(8080);
     server.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     connect(s, (struct sockaddr *)&server, sizeof(server));
 
-    send(s, "Hello from client", 17, 0);
-    read(s, buffer, sizeof(buffer));
+    printf("Enter message: ");
+    fgets(msg, sizeof(msg), stdin);
 
-    printf("Server: %s\n", buffer);
+    send(s, msg, strlen(msg) + 1, 0);
+
+    recv(s, msg, sizeof(msg), 0);
+    printf("Server: %s\n", msg);
 
     close(s);
 
