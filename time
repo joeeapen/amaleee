@@ -1,0 +1,72 @@
+
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+int main() {
+    int s;
+    char msg[100];
+    struct sockaddr_in server, client;
+    socklen_t len = sizeof(client);
+    time_t t;
+
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+
+    server.sin_family = AF_INET;
+    server.sin_port = htons(8080);
+    server.sin_addr.s_addr = INADDR_ANY;
+
+    bind(s, (struct sockaddr *)&server, sizeof(server));
+
+    printf("Time server waiting...\n");
+
+    while (1) {
+        recvfrom(s, msg, sizeof(msg), 0,
+                 (struct sockaddr *)&client, &len);
+
+        t = time(NULL);
+        snprintf(msg, sizeof(msg), "%s", ctime(&t));
+
+        sendto(s, msg, strlen(msg) + 1, 0,
+               (struct sockaddr *)&client, len);
+    }
+
+    close(s);
+    return 0;
+}
+
+
+
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
+int main() {
+    int s;
+    char msg[100] = "TIME";
+    struct sockaddr_in server;
+    socklen_t len = sizeof(server);
+
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+
+    server.sin_family = AF_INET;
+    server.sin_port = htons(8080);
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    sendto(s, msg, strlen(msg) + 1, 0,
+           (struct sockaddr *)&server, len);
+
+    recvfrom(s, msg, sizeof(msg), 0,
+             (struct sockaddr *)&server, &len);
+
+    printf("Server time: %s", msg);
+
+    close(s);
+    return 0;
+}
